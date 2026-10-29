@@ -17,9 +17,13 @@ endif()
 
 ################################################################################
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-message("-- Setting C++11")
+message("-- Setting C++17")
+# Le k-d tree embarqué utilise encore le mot-clé register, retiré en C++17.
+if(NOT MSVC)
+        add_compile_options(-Wno-register)
+endif()
 
 if(MSVC)
         # The /MP flag is available and works as intended with the MSVC compiler

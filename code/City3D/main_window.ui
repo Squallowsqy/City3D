@@ -53,9 +53,15 @@
     </property>
     <item>
      <widget class="QScrollArea" name="scrollArea">
+      <property name="minimumSize">
+       <size>
+        <width>360</width>
+        <height>0</height>
+       </size>
+      </property>
       <property name="maximumSize">
        <size>
-        <width>300</width>
+        <width>430</width>
         <height>16777215</height>
        </size>
       </property>

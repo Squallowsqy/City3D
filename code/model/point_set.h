@@ -73,6 +73,13 @@ public:
 	const Box3d& bbox() const;
 	void invalidate_bbox() { bbox_is_valid_ = false; }
 
+	// Lowest class-2 return, in the translated cloud. LiDAR HD ground.
+	void note_ground_z(double local_z);
+	bool has_ground_z() const { return has_ground_z_; }
+	double ground_z() const { return ground_z_; }
+	// Footprints sit on the ground when class 2 was seen, otherwise on the lowest point.
+	double footprint_z() const { return has_ground_z_ ? ground_z_ : bbox().z_min(); }
+
 private:
 	std::vector<vec3>  points_;
 	std::vector<vec3>  colors_;
@@ -81,6 +88,9 @@ private:
 
 	mutable bool	bbox_is_valid_;
 	mutable Box3d	bbox_;
+
+	bool	has_ground_z_;
+	double	ground_z_;
 
 	std::vector<VertexGroup::Ptr>	groups_;
 

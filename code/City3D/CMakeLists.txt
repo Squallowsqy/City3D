@@ -14,6 +14,10 @@ set(${PROJECT_NAME}_HEADERS
         dlg/wgt_render.h
         dlg/weight_panel_click.h
         dlg/weight_panel_manual.h
+        dlg/dlg_lidar_hd.h
+        dlg/lidar_import_panel.h
+        dlg/dlg_ign_grid.h
+        selection_tool.h
         )
 
 set(${PROJECT_NAME}_SOURCES
@@ -23,6 +27,10 @@ set(${PROJECT_NAME}_SOURCES
         dlg/wgt_render.cpp
         dlg/weight_panel_click.cpp
         dlg/weight_panel_manual.cpp
+        dlg/dlg_lidar_hd.cpp
+        dlg/lidar_import_panel.cpp
+        dlg/dlg_ign_grid.cpp
+        selection_tool.cpp
         )
 
 set(${PROJECT_NAME}_FORMS

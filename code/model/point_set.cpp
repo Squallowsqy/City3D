@@ -21,8 +21,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "vertex_group.h"
 
 
-PointSet::PointSet() : bbox_is_valid_(false)
+PointSet::PointSet() : bbox_is_valid_(false), has_ground_z_(false), ground_z_(0.0)
 {
+}
+
+void PointSet::note_ground_z(double local_z) {
+	if (!has_ground_z_ || local_z < ground_z_)
+		ground_z_ = local_z;
+	has_ground_z_ = true;
 }
 
 PointSet::~PointSet() {

@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define MAIN_WINDOW_H
 
 #include <QMainWindow>
+#include <QStringList>
 
 #include "ui_main_window.h"
 #include "../math/math_types.h"
@@ -36,6 +37,7 @@ class QProgressBar;
 class WeightPanelClick;
 class WeightPanelManual;
 class WgtRender;
+class LidarImportPanel;
 
 class MainWindow 
 	: public QMainWindow
@@ -62,12 +64,18 @@ public:
 	void showCoordinateUnderMouse(const vec3& p, bool found) ;
 
 	void resetRendering();
+	void showImportStatus(const QString& status);
+	void refreshResultPanel();
+	void beginBusy(const QString& task);
+	void endBusy();
 
     LinearProgramSolver::SolverName active_solver() const;
 
 public Q_SLOTS:
 	bool openPointCloud();
 	bool openFootPrint();
+	void downloadIgnTiles();
+	bool loadPointClouds(const QStringList& fileNames);
 
 	bool saveReconstruction();
 	bool savePointCloud();
@@ -104,6 +112,8 @@ protected:
 
 private:
 	PaintCanvas*	mainCanvas_;
+	LidarImportPanel* lidarPanel_;
+	bool importing_;
 
 	QString			pointCloudFileName_;
 	QString			footPrintMeshFileName_;
@@ -112,6 +122,7 @@ private:
 	QString			curCameraConfigFileDirectory_;
 
 	QProgressBar*	progress_bar_;
+	QLabel*			busyLabel_;
 
 	QAction* actionOpenFootPrint_;
 

@@ -23,6 +23,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
 #include <string>
+#include <vector>
+
+#include "point_set_serializer_las.h"
 
 
 class PointSet;
@@ -32,6 +35,9 @@ class PointSetIO
 public:
 	// for both point cloud and mesh
 	static PointSet* read(const std::string& file_name);
+
+	// LAS/LAZ tiles. One cloud, shared Lambert-93 origin. Options select IGN classes.
+	static PointSet* read(const std::vector<std::string>& file_names, const LasLoadOptions& las_options);
 
 	// save the point set to a file. return false if failed.
 	static bool		 save(const std::string& file_name, const PointSet* point_set);

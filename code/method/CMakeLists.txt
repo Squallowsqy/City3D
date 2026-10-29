@@ -19,6 +19,7 @@ set(method_HEADERS
         polyfit_info.h
         reconstruction.h
         regularize_polygon.h
+        vegetation_reconstruction.h
         )
 
 set(method_SOURCES
@@ -33,11 +34,16 @@ set(method_SOURCES
         method_global.cpp
         point_set_region_growing.cpp
         regularize_polygon.cpp
-        otr2_edge_simplify.cpp)
-
+        otr2_edge_simplify.cpp
+        vegetation_reconstruction.cpp)
 
 add_library(${PROJECT_NAME} STATIC ${method_SOURCES} ${method_HEADERS})
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "City3D")
+
+set(CITY3D_ADTREE_EXE "" CACHE FILEPATH "Path to the AdTree executable (vegetation reconstruction)")
+if (CITY3D_ADTREE_EXE)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE "CITY3D_ADTREE_EXE=\"${CITY3D_ADTREE_EXE}\"")
+endif ()
 
 if (POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)

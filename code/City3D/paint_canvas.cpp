@@ -34,6 +34,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "../renderer/tessellator.h"
 #include "../method/reconstruction.h"
 #include "../method/point_set_normals.h"
+#include "../method/vegetation_reconstruction.h"
+#include "../basic/progress.h"
+
+#include <QPainter>
 
 
 using namespace qglviewer;
@@ -48,6 +52,7 @@ PaintCanvas::PaintCanvas(QWidget *parent)
 	, show_point_set_(true)
 	, show_footprint_(true)
 	, show_reconstruction_(true)
+	, filtered_footprint_(nil)
 {
 	setFPSIsDisplayed(true);
 
@@ -74,6 +79,9 @@ PaintCanvas::~PaintCanvas() {
 	MeshRender::terminate();
 
 	clear();
+	if (filtered_footprint_ && filtered_footprint_ != footprint_)
+		delete filtered_footprint_;
+	filtered_footprint_ = nil;
 }
 
 
@@ -86,6 +94,11 @@ void PaintCanvas::clear() {
 
 	if (reconstruction_)
 		reconstruction_.forget();
+
+	selection_.clear();
+	if (filtered_footprint_ && filtered_footprint_ != static_cast<Map*>(footprint_))
+		delete filtered_footprint_;
+	filtered_footprint_ = nil;
 }
 
 
@@ -199,8 +212,107 @@ void PaintCanvas::draw() {
 }
 
 
+void PaintCanvas::postDraw() {
+	QGLViewer::postDraw();
+	QPainter painter(this);
+	selection_.drawOverlay(painter, width(), height());
+	painter.end();
+}
+
+
 void PaintCanvas::keyPressEvent(QKeyEvent *e) {
+	if (e->key() == Qt::Key_Escape) {
+		selection_.clearGeometry();
+		update();
+		e->accept();
+		return;
+	}
 	e->ignore();
+}
+
+
+void PaintCanvas::mousePressEvent(QMouseEvent *e) {
+	if (selection_.mousePress(this, e)) {
+		e->accept();
+		return;
+	}
+	QGLViewer::mousePressEvent(e);
+}
+
+
+void PaintCanvas::mouseMoveEvent(QMouseEvent *e) {
+	if (selection_.mouseMove(this, e)) {
+		e->accept();
+		return;
+	}
+	QGLViewer::mouseMoveEvent(e);
+}
+
+
+void PaintCanvas::mouseReleaseEvent(QMouseEvent *e) {
+	if (selection_.mouseRelease(this, e)) {
+		if (filtered_footprint_ && filtered_footprint_ != static_cast<Map*>(footprint_))
+			delete filtered_footprint_;
+		filtered_footprint_ = nil;
+		e->accept();
+		return;
+	}
+	QGLViewer::mouseReleaseEvent(e);
+}
+
+
+void PaintCanvas::mouseDoubleClickEvent(QMouseEvent *e) {
+	if (selection_.mouseDoubleClick(this, e)) {
+		if (filtered_footprint_ && filtered_footprint_ != static_cast<Map*>(footprint_))
+			delete filtered_footprint_;
+		filtered_footprint_ = nil;
+		e->accept();
+		return;
+	}
+	QGLViewer::mouseDoubleClickEvent(e);
+}
+
+
+Map* PaintCanvas::workingFootprint() {
+	if (!footprint_)
+		return nil;
+	if (selection_.selectedFootprints().isEmpty())
+		return footprint_;
+	if (!filtered_footprint_)
+		filtered_footprint_ = selection_.filteredFootprint(footprint_);
+	return filtered_footprint_ ? filtered_footprint_ : static_cast<Map*>(footprint_);
+}
+
+
+void PaintCanvas::setSelectionRectangle() {
+	selection_.setMode(SelectionTool::Rectangle);
+	main_window_->status_message("Sélection rectangle : clic-glisser sur les bâtiments", 4000);
+	update();
+}
+
+
+void PaintCanvas::setSelectionCircle() {
+	selection_.setMode(SelectionTool::Circle);
+	main_window_->status_message("Sélection cercle : clic-glisser", 4000);
+	update();
+}
+
+
+void PaintCanvas::setSelectionPolygon() {
+	selection_.setMode(SelectionTool::Polygon);
+	main_window_->status_message("Sélection polygone : clics, double-clic pour valider", 5000);
+	update();
+}
+
+
+void PaintCanvas::clearSelection() {
+	selection_.clear();
+	if (filtered_footprint_ && filtered_footprint_ != static_cast<Map*>(footprint_))
+		delete filtered_footprint_;
+	filtered_footprint_ = nil;
+	selection_.setMode(SelectionTool::None);
+	main_window_->status_message("Sélection effacée", 2000);
+	update();
 }
 
 
@@ -491,32 +603,36 @@ void PaintCanvas::estimateNormals() {
 
 
 void PaintCanvas::segmentation() {
-    main_window_->updateWeights();
+	main_window_->beginBusy(QString::fromUtf8("Segmentation des bâtiments…"));
+	main_window_->updateWeights();
 	Reconstruction recon;
-    if (!footprint_) {
+	if (!footprint_) {
 		if (main_window_->want_footprint()) {
-            auto footprint = recon.generate_footprint(point_set_);
-            setFootPrint(footprint);
-        }
-		else
+			auto footprint = recon.generate_footprint(point_set_);
+			setFootPrint(footprint);
+		}
+		else {
+			main_window_->endBusy();
 			return;
-    }
+		}
+	}
 
-	if (footprint_) {
-		recon.segmentation(point_set_, footprint_);
+	Map* feet = workingFootprint();
+	if (feet) {
+		main_window_->showImportStatus(QString::fromUtf8("Segmentation des bâtiments…"));
+		recon.segmentation(point_set_, feet);
 		main_window_->wgtRender_->checkBoxPointSet->setChecked(false);
 
-        // footprint may have been simplified in segmentation, so update the viewer
-        Tessellator::remove_mesh(footprint_);
-        MeshRender::remove_mesh(footprint_);
-        MapFacetAttribute<Color> color(footprint_, "color");
-        FOR_EACH_FACET(Map, footprint_, it)
-            color[it] = random_color();
-        Tessellator::add_mesh(footprint_);
-        MeshRender::add_mesh(footprint_);
-        Tessellator::invalidate();
-        MeshRender::invalidate();
-    }
+		Tessellator::remove_mesh(footprint_);
+		MeshRender::remove_mesh(footprint_);
+		MapFacetAttribute<Color> color(footprint_, "color");
+		FOR_EACH_FACET(Map, footprint_, it)
+			color[it] = random_color();
+		Tessellator::add_mesh(footprint_);
+		MeshRender::add_mesh(footprint_);
+		Tessellator::invalidate();
+		MeshRender::invalidate();
+	}
 	else
 		main_window_->wgtRender_->checkBoxPointSet->setChecked(true);
 
@@ -524,17 +640,23 @@ void PaintCanvas::segmentation() {
 	main_window_->checkBoxShowReconstruction->setChecked(false);
 
 	update_all();
+	main_window_->refreshResultPanel();
+	main_window_->endBusy();
 }
 
 
 void PaintCanvas::extractRoofs() {
-    main_window_->updateWeights();
+	main_window_->beginBusy(QString::fromUtf8("Extraction des toits…"));
+	main_window_->updateWeights();
+	main_window_->showImportStatus(QString::fromUtf8("Extraction des toits…"));
 	Reconstruction recon;
-	auto status = recon.extract_roofs(point_set_, footprint_);
+	auto status = recon.extract_roofs(point_set_, workingFootprint());
 	main_window_->wgtRender_->checkBoxPointSet->setChecked(!status);
 	main_window_->wgtRender_->checkBoxSegments->setChecked(true);
 	main_window_->checkBoxShowReconstruction->setChecked(false);
 	update_all();
+	main_window_->refreshResultPanel();
+	main_window_->endBusy();
 }
 
 
@@ -544,11 +666,13 @@ void PaintCanvas::reconstruct() {
 		return;
 	}
 
+	main_window_->beginBusy(QString::fromUtf8("Reconstruction du maillage…"));
 	setReconstruction(new Map);
 	main_window_->updateWeights();
+	main_window_->showImportStatus(QString::fromUtf8("Reconstruction du maillage…"));
 	Reconstruction recon;
 
-	bool status = recon.reconstruct(point_set_, footprint_, reconstruction_, main_window_->active_solver(), show_reconstruction_);
+	bool status = recon.reconstruct(point_set_, workingFootprint(), reconstruction_, main_window_->active_solver(), show_reconstruction_);
 	if (!status)
 		setReconstruction(nil);
 
@@ -560,4 +684,42 @@ void PaintCanvas::reconstruct() {
 	main_window_->wgtRender_->checkBoxSharpEdges->setChecked(true);
 
 	update_all();
+	main_window_->refreshResultPanel();
+	main_window_->endBusy();
+}
+
+
+void PaintCanvas::reconstructVegetation() {
+	if (!point_set_) {
+		Logger::warn("-") << "chargez d'abord un nuage de points" << std::endl;
+		return;
+	}
+	std::vector<std::size_t> indices = selection_.selectedPoints();
+	if (indices.empty()) {
+		Logger::warn("-") << "sélectionnez d'abord une zone (rectangle, cercle ou polygone) contenant de la végétation" << std::endl;
+		main_window_->status_message("Sélectionnez d'abord la végétation", 4000);
+		return;
+	}
+
+	main_window_->beginBusy(QString::fromUtf8("Reconstruction végétation (AdTree)…"));
+	main_window_->showImportStatus(QString::fromUtf8("AdTree — reconstruction des arbres…"));
+	if (!reconstruction_)
+		setReconstruction(new Map);
+
+	VegetationReconstruction veg;
+	const int trees = veg.reconstruct(point_set_, indices, reconstruction_, true);
+	if (trees > 0) {
+		Tessellator::add_mesh(reconstruction_);
+		MeshRender::add_mesh(reconstruction_);
+		Tessellator::invalidate();
+		MeshRender::invalidate();
+		main_window_->checkBoxShowReconstruction->setChecked(true);
+		main_window_->status_message(QString::fromUtf8("%1 arbre(s) reconstruit(s)").arg(trees).toStdString(), 5000);
+	}
+	else {
+		main_window_->status_message("Aucun arbre reconstruit", 4000);
+	}
+	update_all();
+	main_window_->refreshResultPanel();
+	main_window_->endBusy();
 }

@@ -17,6 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
+
 #ifndef PAINTCANVAS_H
 #define PAINTCANVAS_H
 
@@ -27,6 +28,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "../basic/canvas.h"
 #include "../model/point_set.h"
 #include "../model/map.h"
+#include "selection_tool.h"
 
 
 class MainWindow;
@@ -66,6 +68,7 @@ public:
 	void fitScreen(const Box3d& box);
 
 	PointSetRender* point_set_render() const { return point_set_render_; }
+	SelectionTool* selectionTool() { return &selection_; }
 
 	void clear();
 
@@ -74,9 +77,13 @@ public:
 protected:
 	virtual void draw();
 	virtual void init();
+	virtual void postDraw();
 
-	// Keyboard events functions
 	virtual void keyPressEvent(QKeyEvent *e);
+	virtual void mousePressEvent(QMouseEvent *e);
+	virtual void mouseMoveEvent(QMouseEvent *e);
+	virtual void mouseReleaseEvent(QMouseEvent *e);
+	virtual void mouseDoubleClickEvent(QMouseEvent *e);
 
 public Q_SLOTS:
 	void setProjectionMode(bool);
@@ -88,9 +95,15 @@ public Q_SLOTS:
 
 	void estimateNormals();
 
+	void setSelectionRectangle();
+	void setSelectionCircle();
+	void setSelectionPolygon();
+	void clearSelection();
+
 	void segmentation();
 	void extractRoofs();
 	void reconstruct();
+	void reconstructVegetation();
 
 	void setShowPointSet(bool);
 	void setShowFootPrint(bool);
@@ -98,6 +111,7 @@ public Q_SLOTS:
 
 private :
 	void drawCornerAxis();
+	Map* workingFootprint();
 
 protected:
 	MainWindow*	main_window_;
@@ -115,6 +129,9 @@ protected:
 	
 	bool show_footprint_;
 	bool show_reconstruction_;
+
+	SelectionTool selection_;
+	Map* filtered_footprint_;
 };
 
 

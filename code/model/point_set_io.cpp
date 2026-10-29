@@ -68,6 +68,44 @@ PointSet* PointSetIO::read(const std::string& file_name)
 	return pset;
 }
 
+PointSet* PointSetIO::read(const std::vector<std::string>& file_names, const LasLoadOptions& las_options)
+{
+	if (file_names.empty()) {
+		Logger::err("-") << "no point cloud file" << std::endl;
+		return nil;
+	}
+
+	if (file_names.size() == 1) {
+		std::string ext = FileUtils::extension(file_names[0]);
+		String::to_lowercase(ext);
+		if (ext == "ply")
+			return read(file_names[0]);
+	}
+
+	for (std::size_t i = 0; i < file_names.size(); ++i) {
+		std::string ext = FileUtils::extension(file_names[i]);
+		String::to_lowercase(ext);
+		if (ext != "las" && ext != "laz") {
+			Logger::err("-") << "expected a LAS/LAZ tile: " << file_names[i] << std::endl;
+			return nil;
+		}
+	}
+
+	Logger::out("-") << "reading " << file_names.size() << " lidar tile(s)..." << std::endl;
+
+	StopWatch w;
+	PointSet* pset = new PointSet;
+	pset->set_name(file_names[0]);
+	if (!PointSetSerializer_las::load(pset, file_names, las_options) || pset->num_points() < 1) {
+		Logger::err("-") << "reading file failed (no data exist)" << std::endl;
+		delete pset;
+		return nil;
+	}
+
+	Logger::out("-") << "done. " << w.seconds() << " sec." << std::endl;
+	return pset;
+}
+
 bool PointSetIO::save(const std::string& file_name, const PointSet* point_set) {
 	if (!point_set) {
 		Logger::err("-") << "Point set is null" << std::endl;

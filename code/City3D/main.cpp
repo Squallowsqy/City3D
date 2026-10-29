@@ -66,8 +66,17 @@ int main(int argc, char **argv)
 
     QApplication app(argc, argv);
 
-	MainWindow window;	
+	MainWindow window;
 	window.show();
+
+	// Optional: City3D /path/to/cloud.ply|.las|.laz
+	if (argc > 1) {
+		QStringList files;
+		for (int i = 1; i < argc; ++i)
+			files << QString::fromLocal8Bit(argv[i]);
+		QMetaObject::invokeMethod(&window, "loadPointClouds", Qt::QueuedConnection,
+			Q_ARG(QStringList, files));
+	}
 
 	return app.exec();
 };
